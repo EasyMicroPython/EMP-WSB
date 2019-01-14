@@ -1,6 +1,6 @@
 import threading
 import serial
-from wsServer import WebsocketServer
+from emp_wsb.wsServer import WebsocketServer
 
 
 class WSB:
