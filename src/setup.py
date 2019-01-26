@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='emp-wsb',
-    version='1.0',
+    version='1.1',
     packages=['emp_wsb'],
     include_package_data=True,
     license='MIT License',
