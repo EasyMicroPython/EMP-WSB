@@ -4,6 +4,7 @@ import threading
 import time
 import json
 import serial
+import textwrap
 from emp_wsb.wsServer import WebsocketServer
 
 BUFFER_SIZE = 1024
@@ -153,7 +154,7 @@ class RawRepl:
         self.enter_raw_repl()
         try:
             out = self.exec_(textwrap.dedent(command))
-        except selfoardError as ex:
+        except RawReplError as ex:
             # Check if this is an OSError #2, i.e. file doesn't exist and
             # rethrow it as something more descriptive.
             if ex.args[2].decode("utf-8").find("OSError: [Errno 2] ENOENT") != -1:
@@ -161,7 +162,7 @@ class RawRepl:
             else:
                 raise ex
         self.exit_raw_repl()
-        return out
+        return out[2::]
 
     def put_file(self, filename, data):
         """Create or update the specified file with the provided data.
@@ -212,17 +213,23 @@ class WSB(RawRepl):
             self.exit_raw_repl()
         elif message.startswith('{"put":'):
             message = message.replace('\n', r'\n')
-
-            print(message)
             pdu = eval(message)
-            # pdu = json.loads(message)
-            # print(pdu)
-
             filename = pdu['put']
             data = pdu['data']
             # print(data)
             self.put_file(filename, data)
+        elif message.startswith('{"get":'):
+            pdu = eval(message)
+            filename = pdu['get']
+            data = {"func": 'get_code',
+                    "data": {
+                        "filename": filename,
+                        "code": self.get_file(filename).decode('utf-8')
+                    }
+                    }
 
+            self._server.send_message(
+                WebsocketServer.clients[0], json.dumps(data))
         else:
             self._repl.write(message.encode('utf-8'))
 
