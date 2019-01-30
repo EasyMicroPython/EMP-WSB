@@ -211,25 +211,25 @@ class WSB(RawRepl):
             self.enter_raw_repl()
         elif message == 'ExitRawRepl':
             self.exit_raw_repl()
-        elif message.startswith('{"put":'):
-            message = message.replace('\n', r'\n')
-            pdu = eval(message)
-            filename = pdu['put']
-            data = pdu['data']
-            # print(data)
+        elif message.startswith('PutFile:'):
+            filename = message.split(':', 2)[1]
+            data = message.split(':', 2)[2]
             self.put_file(filename, data)
-        elif message.startswith('{"get":'):
-            pdu = eval(message)
-            filename = pdu['get']
-            data = {"func": 'get_code',
-                    "data": {
-                        "filename": filename,
-                        "code": self.get_file(filename).decode('utf-8')
-                    }
-                    }
+            rsp = {"func": 'put_file'}
+            self._server.send_message(
+                WebsocketServer.clients[0], json.dumps(rsp))
+        elif message.startswith('GetFile:'):
+            # pdu = eval(message)
+            filename = message.split(':', 1)[1]
+            rsp = {"func": 'get_code',
+                   "data": {
+                       "filename": filename,
+                       "code": self.get_file(filename).decode('utf-8')
+                   }
+                   }
 
             self._server.send_message(
-                WebsocketServer.clients[0], json.dumps(data))
+                WebsocketServer.clients[0], json.dumps(rsp))
         else:
             self._repl.write(message.encode('utf-8'))
 
