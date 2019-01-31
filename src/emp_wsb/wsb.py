@@ -241,11 +241,8 @@ class WSB(RawRepl):
                 if not self._enter_rawrepl:
                     data = self._repl.read().decode('utf-8', errors='ignore')
 
-                try:
-                    if data:
-                        server.send_message(WebsocketServer.clients[0], data)
-                except:
-                    pass
+                if data:
+                    server.send_message(WebsocketServer.clients[0], data)
 
             self._timer = threading.Timer(0.00001, poll)
             self._timer.start()
