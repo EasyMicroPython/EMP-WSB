@@ -1,11 +1,12 @@
 import ctypes
 import inspect
+import json
+import sys
+import textwrap
 import threading
 import time
-import json
+
 import serial
-import textwrap
-from emp_wsb.wsServer import WebsocketServer
 
 BUFFER_SIZE = 1024
 
@@ -14,21 +15,29 @@ class RawReplError(BaseException):
     pass
 
 
-class RawRepl:
-    def __init__(self, device, baudrate=115200, rawdelay=0):
+class RawRepl():
+
+    def __init__(self, device, baudrate=115200, rawdelay=0, enter_rawrepl=None):
+        super().__init__()
         self._rawdelay = rawdelay
-        self._repl = serial.Serial(device, baudrate)
+        self._enter_rawrepl = enter_rawrepl
+        if isinstance(device, str):
+            self.repl = serial.Serial(device, baudrate)
+        elif isinstance(device, serial.Serial):
+            self.repl = device
+        else:
+            raise RawReplError('can not init RawRepl')
 
     def read_until(self, min_num_bytes, ending, timeout=10, data_consumer=None):
-        data = self._repl.read(min_num_bytes)
+        data = self.repl.read(min_num_bytes)
         if data_consumer:
             data_consumer(data)
         timeout_count = 0
         while True:
             if data.endswith(ending):
                 break
-            elif self._repl.inWaiting() > 0:
-                new_data = self._repl.read(1)
+            elif self.repl.inWaiting() > 0:
+                new_data = self.repl.read(1)
                 data = data + new_data
                 if data_consumer:
                     data_consumer(new_data)
@@ -41,25 +50,25 @@ class RawRepl:
         return data
 
     def enter_raw_repl(self):
-        if not self._enter_rawrepl:
+        if not self._enter_rawrepl[0]:
             print('==> Entering Raw REPL')
-            self._enter_rawrepl = True
-
+            self._enter_rawrepl[0] = True
+           
             # Brief delay before sending RAW MODE char if requests
             if self._rawdelay > 0:
                 time.sleep(self._rawdelay)
 
             # ctrl-C twice: interrupt any running program
-            self._repl.write(b'\r\x03\x03')
+            self.repl.write(b'\r\x03\x03')
 
             # flush input (without relying on serial.flushInput())
-            n = self._repl.inWaiting()
+            n = self.repl.inWaiting()
             while n > 0:
-                self._repl.read(n)
-                n = self._repl.inWaiting()
+                self.repl.read(n)
+                n = self.repl.inWaiting()
             time.sleep(2)
 
-            self._repl.write(b'\r\x01')  # ctrl-A: enter raw REPL
+            self.repl.write(b'\r\x01')  # ctrl-A: enter raw REPL
             data = self.read_until(1, b'raw REPL; CTRL-B to exit\r\n>')
             if not data.endswith(b'raw REPL; CTRL-B to exit\r\n>'):
                 print(data)
@@ -67,10 +76,10 @@ class RawRepl:
             print('---> now in rawrepl mode')
 
     def exit_raw_repl(self):
-        if self._enter_rawrepl:
+        if self._enter_rawrepl[0]:
             print('==> Exit Raw REPL')
-            self._enter_rawrepl = False
-            self._repl.write(b'\r\x02')  # ctrl-B: enter friendly REPL
+            self._enter_rawrepl[0] = False
+            self.repl.write(b'\r\x02')  # ctrl-B: enter friendly REPL
 
     def follow(self, timeout, data_consumer=None):
         # wait for normal output
@@ -102,13 +111,13 @@ class RawRepl:
 
         # write command
         for i in range(0, len(command_bytes), 256):
-            self._repl.write(
+            self.repl.write(
                 command_bytes[i:min(i + 256, len(command_bytes))])
             time.sleep(0.01)
-        self._repl.write(b'\x04')
+        self.repl.write(b'\x04')
 
         # check if we could exec command
-        # data = self._repl.read(2)
+        # data = self.repl.read(2)
         # if data != b'OK':
         #     raise RawReplError('could not exec command')
 
@@ -117,11 +126,11 @@ class RawRepl:
         return self.follow(timeout, data_consumer)
 
     def eval(self, expression):
-        ret = self.exec_('print({})'.format(expression))
+        ret = self.exec__('print({})'.format(expression))
         ret = ret.strip()
         return ret
 
-    def exec_(self, command):
+    def exec__(self, command):
         ret, ret_err = self.exec_raw(command)
         if ret_err:
             raise RawReplError('exception', ret, ret_err)
@@ -130,7 +139,7 @@ class RawRepl:
     def execfile(self, filename):
         with open(filename, 'rb') as f:
             pyfile = f.read()
-        return self.exec_(pyfile)
+        return self.exec__(pyfile)
 
     def get_file(self, filename):
         """Retrieve the contents of the specified file and return its contents
@@ -153,7 +162,7 @@ class RawRepl:
         )
         self.enter_raw_repl()
         try:
-            out = self.exec_(textwrap.dedent(command))
+            out = self.exec__(textwrap.dedent(command))
         except RawReplError as ex:
             # Check if this is an OSError #2, i.e. file doesn't exist and
             # rethrow it as something more descriptive.
@@ -171,7 +180,7 @@ class RawRepl:
         data = data.encode('utf-8')
         # Open the file for writing on the board and write chunks of data.
         # self.enter_raw_repl()
-        self.exec_("f = open('{0}', 'wb')".format(filename))
+        self.exec__("f = open('{0}', 'wb')".format(filename))
         size = len(data)
         # Loop through and write a buffer size chunk of data at a time.
         for i in range(0, size, BUFFER_SIZE):
@@ -180,83 +189,6 @@ class RawRepl:
             # Make sure to send explicit byte strings (handles python 2 compatibility).
             if not chunk.startswith("b"):
                 chunk = "b" + chunk
-            self.exec_("f.write({0})".format(chunk))
-        self.exec_("f.close()")
+            self.exec__("f.write({0})".format(chunk))
+        self.exec__("f.close()")
         self.exit_raw_repl()
-
-
-class WSB(RawRepl):
-    def __init__(self, device, baudrate=115200, port=9000, rawdelay=0):
-        super().__init__(device, baudrate=baudrate, rawdelay=rawdelay)
-        # self._rawdelay = rawdelay
-        # self._repl = serial.Serial(device, baudrate)
-        self._server = WebsocketServer(port)
-        self._server.set_fn_new_client(self._new_client)
-        self._server.set_fn_client_left(self._client_left)
-        self._server.set_fn_message_received(self._message_received)
-        self._timer = None
-        self._forward_job = None
-        self._enter_rawrepl = False
-
-    def _new_client(self, client, server):
-        print("==> EMP-IDE Connected!")
-
-    def _client_left(self, client, server):
-        print("==> EMP-IDE Disconnected!")
-
-    def _message_received(self, client, server, message):
-        print("--> Message received: %s" % message)
-
-        if message == 'EnterRawRepl':
-            self.enter_raw_repl()
-        elif message == 'ExitRawRepl':
-            self.exit_raw_repl()
-        elif message.startswith('PutFile:'):
-            filename = message.split(':', 2)[1]
-            data = message.split(':', 2)[2]
-            self.put_file(filename, data)
-            rsp = {"func": 'put_file'}
-            self._server.send_message(
-                WebsocketServer.clients[0], json.dumps(rsp))
-        elif message.startswith('GetFile:'):
-            # pdu = eval(message)
-            filename = message.split(':', 1)[1]
-            rsp = {"func": 'get_code',
-                   "data": {
-                       "filename": filename,
-                       "code": self.get_file(filename).decode('utf-8')
-                   }
-                   }
-
-            self._server.send_message(
-                WebsocketServer.clients[0], json.dumps(rsp))
-        else:
-            self._repl.write(message.encode('utf-8'))
-
-    # 转发函数
-    def _forward(self, server):
-        def poll():
-            if WebsocketServer.clients:
-                data = None
-                if not self._enter_rawrepl:
-                    data = self._repl.read().decode('utf-8', errors='ignore')
-
-                if data:
-                    server.send_message(WebsocketServer.clients[0], data)
-
-            self._timer = threading.Timer(0.00001, poll)
-            self._timer.start()
-
-        self._timer = threading.Timer(0.00001, poll)
-        self._timer.start()
-
-    def start(self):
-        fjob = threading.Thread(target=self._forward, args=(self._server,))
-        fjob.start()
-        self._server.run_forever()
-
-
-if __name__ == '__main__':
-    device = '/dev/ttyUSB0'
-    wsb = WSB(device)
-    wsb.start()
