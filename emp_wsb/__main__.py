@@ -1,6 +1,4 @@
-from emp_wsb.wsb import WSB
+from emp_wsb.cli import run
+import fire
 
-
-device = 'COM3'
-wsb = WSB(device)
-wsb.start()
+fire.Fire(run)

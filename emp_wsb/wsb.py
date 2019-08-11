@@ -1,11 +1,10 @@
 import ctypes
-import inspect
 import threading
 import time
 import json
 import serial
 import textwrap
-from emp_wsb.wsServer import WebsocketServer
+from emp_wsb.wserver import WebsocketServer
 
 BUFFER_SIZE = 1024
 
@@ -190,6 +189,7 @@ class WSB(RawRepl):
         super().__init__(device, baudrate=baudrate, rawdelay=rawdelay)
         # self._rawdelay = rawdelay
         # self._repl = serial.Serial(device, baudrate)
+        self.port = port
         self._server = WebsocketServer(port)
         self._server.set_fn_new_client(self._new_client)
         self._server.set_fn_client_left(self._client_left)
@@ -244,8 +244,10 @@ class WSB(RawRepl):
                 if data:
                     server.send_message(WebsocketServer.clients[0], data)
 
-
     def start(self):
+        from emp_wsb.logo import print_emp_infos
+        print_emp_infos(self.port)
+
         fjob = threading.Thread(target=self._forward, args=(self._server,))
         fjob.start()
         self._server.run_forever()

@@ -1,0 +1,12 @@
+CHANGES
+=======
+
+* fixed(wsb):  Solved the problem of IO
+* rm: try except
+* changed pdu formattor
+* implemented get\_file method
+* putfile implemented
+* added: setup.py
+* update: readme
+* refactor whole project and added readme
+* init

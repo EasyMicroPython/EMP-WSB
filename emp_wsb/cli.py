@@ -1,12 +1,15 @@
 from emp_wsb.wsb import WSB
-import sys
+import fire
 
 
-def cli():
-    device = sys.argv[1]
-    wsb = WSB(device)
+def run(device=None, port=9000):
+    if not device:
+        raise SystemExit('args[device] cannot be None!')
+    wsb = WSB(device, port=port)
     wsb.start()
 
 
-if __name__ == '__main__':
-    cli()
+def entry_points():
+    fire.Fire({
+        'run': run
+    })
