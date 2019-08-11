@@ -15,13 +15,8 @@ pip install emp-wsb
 # devive: serial device name
 # port: the port that websocket will listen to, default is 9000
 # for example:
-wsb run com3
- ______     __    __     ______   __     __     ______     ______    
-/\  ___\   /\ "-./  \   /\  == \ /\ \  _ \ \   /\  ___\   /\  == \   
-\ \  __\   \ \ \-./\ \  \ \  _-/ \ \ \/ ".\ \  \ \___  \  \ \  __<   
- \ \_____\  \ \_\ \ \_\  \ \_\    \ \__/".~\_\  \/\_____\  \ \_____\ 
-  \/_____/   \/_/  \/_/   \/_/     \/_/   \/_/   \/_____/   \/_____/ 
 
+wsb run com3
 
 wsb plugin running at:
     - local: http://localhost:9000
