@@ -5,12 +5,12 @@
 ## Quick Start
 
 ### Install
-```
+
 pip install emp-wsb
-```
+
 
 ### Usage
-```bash
+
 # wsb run [device] [port]
 # devive: serial device name
 # port: the port that websocket will listen to, default is 9000
@@ -26,4 +26,4 @@ wsb run com3
 wsb plugin running at:
     - local: http://localhost:9000
 
-```
+
