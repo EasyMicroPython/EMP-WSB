@@ -1,14 +1,13 @@
 CHANGES
 =======
 
+* docs(README): 修改readme
+* release [0.1.0]
+
 0.1.0
 -----
 
 * ci(package.py): 添加release命令
-
-v0.1.0
-------
-
 * docs(README): update readme
 * fixed(wsb):  Solved the problem of IO
 * rm: try except
